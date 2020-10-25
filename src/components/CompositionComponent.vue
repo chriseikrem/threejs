@@ -1,6 +1,5 @@
 <template>
-  <div id="container" >
-  </div>
+  <div id="container"></div>
 </template>
 
 <style lang="css">
@@ -17,7 +16,7 @@ import {
   computed,
   ref,
   toRef,
-  Ref
+  Ref,
 } from '@vue/composition-api';
 import { Todo, Meta } from './models';
 import * as Three from 'three';
@@ -31,6 +30,16 @@ export default defineComponent({
     const scene = ref();
     const renderer = ref();
     const mesh = ref();
+
+    const raycaster = ref(new Three.Raycaster());
+    const mouse = ref(new Three.Vector2());
+
+    window.addEventListener('resize', () => {
+      renderer.value.setSize(window.innerWidth, window.innerHeight);
+      camera.value.aspect = window.innerWidth / window.innerHeight;
+
+      camera.value.updateProjectionMatrix();
+    });
 
     const init = () => {
       camera.value = new Three.PerspectiveCamera(
@@ -47,6 +56,7 @@ export default defineComponent({
       let material = new Three.MeshNormalMaterial();
 
       mesh.value = new Three.Mesh(geometry, material);
+      mesh.value.position.x = 0.5;
       scene.value.add(mesh.value);
 
       renderer.value = new Three.WebGLRenderer({ antialias: true });
@@ -56,16 +66,32 @@ export default defineComponent({
 
     const animate = () => {
       requestAnimationFrame(animate);
-     
-      mesh.value.rotation.x += 0.01;
-      mesh.value.rotation.y += 0.02;
+
       renderer.value.render(scene.value, camera.value);
+    };
+
+    const onMouseMove = (event) => {
+      event.preventDefault();
+
+      mouse.value.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.value.y = (event.clientY / window.innerHeight) * 2 - 1;
+
+      raycaster.value.setFromCamera(mouse.value, camera.value);
+
+     console.log("onMouseMove -> scene.value.children", scene.value.children)
+     const intersects = raycaster.value.intersectObject(scene.value.children, true);
+      /* for (const intersect of intersects) {
+        console.log(intersect);
+       //  intersect.object.material.color.set( 0xff0000 );
+      }*/
     };
 
     init();
     animate();
 
+    window.addEventListener('mousemove', onMouseMove, false);
+
     return {};
-  }
+  },
 });
 </script>
