@@ -44,6 +44,45 @@ export default defineComponent({
       camera.value.updateProjectionMatrix();
     });
 
+    const addBoxMesh = (scale: Three.Vector3, position: Three.Vector3) => {
+      const geometryToAdd = new Three.BoxGeometry(scale.x, scale.y, scale.z);
+      const material = new Three.MeshNormalMaterial();
+
+      const mesh = new Three.Mesh(geometryToAdd, material);
+      mesh.position.set(position.x, position.y, position.z);
+
+      scene.value.add(mesh);
+    };
+
+    const addCylinderMesh = (
+      radiusTop: number,
+      radiusBottom: number,
+      height: number,
+      radialSegments: number,
+      heightSegments: number,
+      posX: number,
+      posY: number,
+      posZ: number
+    ) => {
+      const geometry = new Three.CylinderGeometry(
+        radiusTop,
+        radiusBottom,
+        height,
+        radialSegments,
+        heightSegments
+      );
+      const material = new Three.MeshPhongMaterial({
+        color: 0xe6e6e6,
+        flatShading: false
+      });
+      const cylinder = new Three.Mesh(geometry, material);
+
+      cylinder.position.set(posX, posY, posZ);
+      cylinder.name = 'cylinder';
+
+      scene.value.add(cylinder);
+    };
+
     const init = () => {
       camera.value = new Three.PerspectiveCamera(
         70,
@@ -58,12 +97,22 @@ export default defineComponent({
       const gridHelper = new Three.GridHelper();
       scene.value.add(gridHelper);
 
-      let geometry = new Three.BoxGeometry(1, 1, 1);
-      let material = new Three.MeshNormalMaterial();
+      addCylinderMesh(1, 1, 0.2, 15, 15, -2, 0, -2);
+      addCylinderMesh(1, 1, 0.2, 15, 15, 2, 0, -2);
+      addCylinderMesh(1, 1, 0.2, 15, 15, -2, 0, 2);
+      addCylinderMesh(1, 1, 0.2, 15, 15, 2, 0, 2);
 
-      mesh.value = new Three.Mesh(geometry, material);
-      mesh.value.position.x = Math.random() * 2 * Math.random() < 0.5 ? -1 : 1;
-      scene.value.add(mesh.value);
+      /*
+      const meshScale = new Three.Vector3(2, 0.2, 2);
+      let meshPosition = new Three.Vector3(-2, 0, 2);
+      addBoxMesh(meshScale, meshPosition);
+      meshPosition = new Three.Vector3(-2, 0, -2);
+      addBoxMesh(meshScale, meshPosition);
+      meshPosition = new Three.Vector3(2, 0, 2);
+      addBoxMesh(meshScale, meshPosition);
+      meshPosition = new Three.Vector3(2, 0, -2);
+      addBoxMesh(meshScale, meshPosition);
+      */
 
       renderer.value = new Three.WebGLRenderer({ antialias: true });
       renderer.value.setSize(window.innerWidth, window.innerHeight);
@@ -72,6 +121,11 @@ export default defineComponent({
         camera.value,
         renderer.value.domElement
       );
+
+      renderer.value.setClearColor(0x45b6fe, 0.2);
+
+      const light = new Three.AmbientLight(0x404040);
+      scene.value.add(light);
 
       document.body.prepend(renderer.value.domElement);
     };
@@ -97,19 +151,27 @@ export default defineComponent({
     const onMouseMove = event => {
       event.preventDefault();
 
+      console.log(mouse.value.x);
+
+      var intersects = raycaster.value.intersectObjects(scene.value.children);
+      console.log('setup -> intersects', intersects);
+
       mouse.value.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.value.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-      /* for (const intersect of intersects) {
-        console.log(intersect);
-       //  intersect.object.material.color.set( 0xff0000 );
-      }*/
+      for (const intersect of intersects) {
+        //  console.log(intersect.object);
+        //  intersect.object.material.color.set( 0xff0000 );
+        if (intersect.object.name === 'cylinder') {
+          intersect.object.material.color.set(0xf0000);
+        }
+      }
     };
 
     init();
     animate();
 
-    window.addEventListener('mousemove', onMouseMove, false);
+    window.addEventListener('click', onMouseMove, false);
 
     return {};
   }
