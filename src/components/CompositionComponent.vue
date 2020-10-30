@@ -22,121 +22,76 @@ import { Todo, Meta } from './models';
 import * as Three from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { DragControls } from 'three/examples/jsm/controls/DragControls';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { createCylinderMesh } from '../utilities/threeUtils';
+import { Water } from 'three/examples/jsm/objects/Water2.js';
 
 export default defineComponent({
   name: 'CompositionComponent',
   components: {},
   props: {},
   setup(props) {
-    const camera = ref();
-    const scene = ref();
-    const renderer = ref();
-    const dragControls = ref();
-    const mesh = ref();
-    const meshesToRaycast = ref(Array<Three.Mesh>());
-    const selectedMesh = ref(Three.Mesh);
-
-    const raycaster = ref(new Three.Raycaster());
-    const mouse = ref(new Three.Vector2());
-
-    const controls = ref();
-
-    window.addEventListener('resize', () => {
-      renderer.value.setSize(window.innerWidth, window.innerHeight);
-      camera.value.aspect = window.innerWidth / window.innerHeight;
-
-      camera.value.updateProjectionMatrix();
-    });
-
-    const addBoxMesh = (scale: Three.Vector3, position: Three.Vector3) => {
-      const geometryToAdd = new Three.BoxGeometry(scale.x, scale.y, scale.z);
-      const material = new Three.MeshNormalMaterial();
-
-      const mesh = new Three.Mesh(geometryToAdd, material);
-      mesh.position.set(position.x, position.y, position.z);
-
-      scene.value.add(mesh);
-    };
-
-    const addCylinderMesh = (
-      radiusTop: number,
-      radiusBottom: number,
-      height: number,
-      radialSegments: number,
-      heightSegments: number,
-      posX: number,
-      posY: number,
-      posZ: number
-    ) => {
-      const geometry = new Three.CylinderGeometry(
-        radiusTop,
-        radiusBottom,
-        height,
-        radialSegments,
-        heightSegments
-      );
-      const material = new Three.MeshPhongMaterial({
-        color: 0xf2f2f2,
-        flatShading: false
-      });
-      const cylinder = new Three.Mesh(geometry, material);
-
-      cylinder.position.set(posX, posY, posZ);
-      cylinder.name = 'cylinder';
-      meshesToRaycast.value.push(cylinder);
-
-      scene.value.add(cylinder);
-    };
-
-    const init = () => {
-      camera.value = new Three.PerspectiveCamera(
+    const camera = ref(
+      new Three.PerspectiveCamera(
         70,
         window.innerWidth / window.innerHeight,
         0.01,
         1000
-      );
+      )
+    );
+    const scene = ref(new Three.Scene());
+    const renderer = ref(new Three.WebGLRenderer({ antialias: true }));
+    const dragControls = ref();
+    const mesh = ref();
+    const meshesToRaycast = ref(Array<Three.Mesh>());
+    const selectedMesh = ref(Three.Mesh);
+    const transformControls = ref(
+      new TransformControls(camera.value, renderer.value.domElement)
+    );
+
+    const raycaster = ref(new Three.Raycaster());
+    const mouse = ref(new Three.Vector2());
+
+    const controls = ref(
+      new OrbitControls(camera.value, renderer.value.domElement)
+    );
+
+    const water = ref();
+
+    const init = () => {
       camera.value.position.z = 5;
       camera.value.position.y = 6;
       camera.value.rotation.x = -45;
 
-      scene.value = new Three.Scene();
-
       const gridHelper = new Three.GridHelper();
       scene.value.add(gridHelper);
+      scene.value.add(transformControls.value);
 
-      addCylinderMesh(1, 1, 0.2, 15, 15, -2, 0, -2);
-      addCylinderMesh(1, 1, 0.2, 15, 15, 2, 0, -2);
-      addCylinderMesh(1, 1, 0.2, 15, 15, -2, 0, 2);
-      addCylinderMesh(1, 1, 0.2, 15, 15, 2, 0, 2);
-
-      /*
-      const meshScale = new Three.Vector3(2, 0.2, 2);
-      let meshPosition = new Three.Vector3(-2, 0, 2);
-      addBoxMesh(meshScale, meshPosition);
-      meshPosition = new Three.Vector3(-2, 0, -2);
-      addBoxMesh(meshScale, meshPosition);
-      meshPosition = new Three.Vector3(2, 0, 2);
-      addBoxMesh(meshScale, meshPosition);
-      meshPosition = new Three.Vector3(2, 0, -2);
-      addBoxMesh(meshScale, meshPosition);
-      */
-
-      renderer.value = new Three.WebGLRenderer({ antialias: true });
       renderer.value.setSize(window.innerWidth, window.innerHeight);
-
-      controls.value = new OrbitControls(
-        camera.value,
-        renderer.value.domElement
-      );
 
       renderer.value.setClearColor(0x45b6fe, 0.2);
 
-      /* const light = new Three.AmbientLight(0x404040);
-      scene.value.add(light); */
+      addDemoData();
 
       var light = new Three.PointLight(0xfff9db, 1, 400);
       light.position.set(0, 75, 25);
       scene.value.add(light);
+
+      /* TODO: Add working water
+      const waterGeometry = new Three.PlaneBufferGeometry(100, 100);
+
+      water.value = new Water(waterGeometry, {
+        color: 0xc4dafd,
+        scale: 1, 
+        flowDirection: new Three.Vector2(1, 1),
+        textureWidth: 1024,
+					textureHeight: 1024
+      });
+
+      water.value.position.y = 0;
+      water.value.position.x = 0;
+      water.value.rotation.x = 64;
+      scene.value.add(water.value);*/
 
       dragControls.value = new DragControls(
         meshesToRaycast.value,
@@ -154,7 +109,7 @@ export default defineComponent({
       renderer.value.render(scene.value, camera.value);
     };
 
-    const onMouseMove = event => {
+    const onMouseMove = (event: any) => {
       event.preventDefault();
 
       mouse.value.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -164,21 +119,46 @@ export default defineComponent({
       const intersects = raycaster.value.intersectObjects(
         meshesToRaycast.value
       );
-      console.log('setup -> intersects', intersects);
 
       if (intersects[0]) {
         intersects[0].object.material.color.set(0xe0e0e0);
+        transformControls.value.attach(intersects[0].object);
       }
+    };
 
-      // selectedMesh.value = intersects[0].object;
+    const addDemoData = () => {
+      const demoCylinderMesh = {
+        radiusTop: 1,
+        radiusBottom: 1,
+        height: 0.2,
+        radialSegments: 15,
+        heightSegments: 15,
+        posX: -2,
+        posY: 0,
+        posZ: -2
+      };
 
-      /* for (const intersect of intersects) {
-        //  console.log(intersect.object);
-        //  intersect.object.material.color.set( 0xff0000 );
-        if (intersect.object.name === 'cylinder') {
-          intersect.object.material.color.set(0xf0000);
-        }
-      }*/
+      const demo1 = createCylinderMesh(demoCylinderMesh);
+      scene.value.add(demo1);
+      meshesToRaycast.value.push(demo1);
+
+      demoCylinderMesh.posX = 2;
+      demoCylinderMesh.posZ = -2;
+      const demo2 = createCylinderMesh(demoCylinderMesh);
+      scene.value.add(demo2);
+      meshesToRaycast.value.push(demo2);
+
+      demoCylinderMesh.posX = -2;
+      demoCylinderMesh.posZ = 2;
+      const demo3 = createCylinderMesh(demoCylinderMesh);
+      scene.value.add(demo3);
+      meshesToRaycast.value.push(demo3);
+
+      demoCylinderMesh.posX = 2;
+      demoCylinderMesh.posZ = 2;
+      const demo4 = createCylinderMesh(demoCylinderMesh);
+      scene.value.add(demo4);
+      meshesToRaycast.value.push(demo4);
     };
 
     init();
@@ -186,24 +166,55 @@ export default defineComponent({
 
     window.addEventListener('click', onMouseMove, false);
 
-    dragControls.value.addEventListener('dragstart', event => {
+    // Keyboard input
+    window.addEventListener('keydown', event => {
+      switch (event.keyCode) {
+        case 16: // shift
+          transformControls.value.setTranslationSnap(1);
+          break;
+      }
+    });
+
+    window.addEventListener('keyup', function(event) {
+      switch (event.keyCode) {
+        case 16: // Shift
+          transformControls.value.setTranslationSnap(null);
+          break;
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      renderer.value.setSize(window.innerWidth, window.innerHeight);
+      camera.value.aspect = window.innerWidth / window.innerHeight;
+
+      camera.value.updateProjectionMatrix();
+    });
+
+    transformControls.value.addEventListener(
+      'dragging-changed',
+      (event: any) => {
+        controls.value.enabled = !event.value;
+      }
+    );
+
+    /* dragControls.value.addEventListener('dragstart', (event: any) => {
       event.object.material.color.set(0xaaaaaa);
       event.object.position.y = 0;
     });
-    dragControls.value.addEventListener('drag', event => {
+    dragControls.value.addEventListener('drag', (event: any) => {
       event.object.position.y = 0;
     });
-    dragControls.value.addEventListener('dragend', event => {
+    dragControls.value.addEventListener('dragend', (event: any) => {
       event.object.material.color.set(0xf2f2f2);
       controls.value.enabled = true;
     });
-    dragControls.value.addEventListener('hoveron', event => {
+    dragControls.value.addEventListener('hoveron', (event: any) => {
       event.object.material.color.set(0xf2f2f2);
       controls.value.enabled = false;
     });
-    dragControls.value.addEventListener('hoveroff', event => {
+    dragControls.value.addEventListener('hoveroff', (event: any) => {
       controls.value.enabled = true;
-    });
+    });*/
 
     return {};
   }
